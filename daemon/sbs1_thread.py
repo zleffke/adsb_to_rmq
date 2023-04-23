@@ -197,11 +197,6 @@ class SBS1_Thread(threading.Thread):
         # self.tlm_q.put(self.tlm)
         return self.tlm
 
-
-
-
-
-
     def _update_main_thread(self):
         self.tlm['connected'] = self.connected
         self.tlm['rx_count']  = 0
