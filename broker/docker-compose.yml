@@ -1,0 +1,13 @@
+version: "3"
+services:
+ rmq:
+  image: "rabbitmq:3-management"
+  ports:
+    - "5672:5672"
+    - "15672:15672"
+  volumes:
+    - adsb_rmq_data:/data
+  hostname: "adsb-rmq"
+volumes:
+  adsb_rmq_data:
+    external: true
