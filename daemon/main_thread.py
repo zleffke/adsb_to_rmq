@@ -28,7 +28,8 @@ from daemon.logger import *
 from daemon.sbs1_thread import *
 from daemon.mlat_thread import *
 # from daemon.Focus_Service import *
-from rmq_comms import rmq_thread
+# from rmq_comms import rmq_thread
+from rmq_comms import BrokerProducer
 
 #Transmission Types for 'MSG' messages
 # used for RMQ key generation
@@ -58,7 +59,7 @@ class Main_Thread(threading.Thread):
 
         self.sbs1_tlm = None #SBS1 Thread Status
         self.mlat_tlm = None #MLAT Thread Status
-        self.rmq_tlm  = None #RMQ Thread Status
+        # self.rmq_tlm  = None #RMQ Thread Status
 
     def run(self):
         print("Main Thread Started...")
@@ -87,16 +88,16 @@ class Main_Thread(threading.Thread):
                     elif self.state == 'CALIBRATE':
                         self._do_calibrate()
 
-                time.sleep(0.000000001)
+                time.sleep(0.000001)
 
         except (KeyboardInterrupt): #when you press ctrl+c
             #print "\n"+self.utc_ts() + "Caught CTRL-C, Killing Threads..."
             self.logger.warning('Caught CTRL-C, Terminating Threads...')
             self._stop_threads()
-            self.logger.warning('Terminating Main Thread...')
+            self.logger.critical('Terminating Main Thread...')
             sys.exit()
         except SystemExit:
-            self.logger.warning('Terminating Main Thread...')
+            self.logger.critical('Terminating Main Thread...')
         sys.exit()
 
     def _do_boot(self):
@@ -104,7 +105,7 @@ class Main_Thread(threading.Thread):
         BOOT State - initialize threads
         '''
         if self._init_threads():#if all threads activate succesfully
-            self.logger.info('Successfully Launched Threads, Switching to IDLE State')
+            self.logger.info('Successfully Launched ADSB Threads, Switching to IDLE State')
             self._set_state('IDLE')
             time.sleep(1)
             self._check_con_status()
@@ -135,11 +136,7 @@ class Main_Thread(threading.Thread):
 
     def _process_sbs1_message(self, msg, base_key="adsb"):
         routing_key = ".".join([base_key, msg['hex_ident'], tt_key[msg['tx_type']-1]])
-        rmq_msg={
-            "rmq":{"routing_key": routing_key},
-            "msg":msg
-        }
-        self.rmq_thread.tx_q.put(rmq_msg)
+        self.producer.send(routing_key, json.dumps(msg))
 
     def _check_con_status(self):
         '''
@@ -148,18 +145,27 @@ class Main_Thread(threading.Thread):
         '''
         if (self.thread_enable['sbs1']): self.sbs1_tlm = self.sbs1_thread.get_tlm()
         if (self.thread_enable['mlat']): self.mlat_tlm = self.mlat_thread.get_tlm()
-        if (self.thread_enable['rmq']):  self.rmq_tlm  = self.rmq_thread.get_tlm()
+        # if (self.thread_enable['rmq']):  self.rmq_tlm  = self.rmq_thread.get_tlm()
 
         if ((self.thread_enable['sbs1'] == True) and (self.sbs1_tlm['connected']==True)): #Connected to dump1090 SBS1 receiver
-            if ((self.thread_enable['rmq']==True) and (self.rmq_tlm['connected']==True)): #Connected to RabbitMQ Broker
-                if self.state == 'IDLE': #Daemon is in IDLE
-                    self._set_state('RUN')
-            if ((self.thread_enable['rmq']==True) and (self.rmq_tlm['connected']==False)):
-                if self.state == 'RUN':
-                    self._set_state('IDLE')
+            # if ((self.thread_enable['rmq']==True) and (self.rmq_tlm['connected']==True)): #Connected to RabbitMQ Broker
+            if self.state == 'IDLE': #Daemon is in IDLE
+                self._set_state('RUN')
+            # if ((self.thread_enable['rmq']==True) and (self.rmq_tlm['connected']==False)):
+                # if self.state == 'RUN':
+                    # self._set_state('IDLE')
         elif ((self.thread_enable['sbs1'] == True) and (self.sbs1_tlm['connected']==False)): #Connected to dump1090 SBS1 receiver
             if (self.state == 'RUN'):
                 self._set_state('IDLE')
+
+    def _init_producer(self):
+        self.logger.info("Initializing Producer")
+        self.producer = BrokerProducer(self.cfg['rmq']['connection'], loggername=self.log_name)
+        self.produce_thread = threading.Thread(target=self.producer.run, name = 'Producer')
+        self.produce_thread.daemon = True
+        self.produce_thread.start()
+        self.logger.info('Producer Started')
+        # time.sleep(1)
 
     def _init_threads(self):
         try:
@@ -176,12 +182,7 @@ class Main_Thread(threading.Thread):
                         self.logger.info('Setting up MLAT SBS1 Thread')
                         self.mlat_thread = MLAT_Thread(self.cfg['mlat'], self) #MLAT SBS1 Thread
                         self.mlat_thread.daemon = True
-                    elif key == 'rmq': #Initialize RabbitMQ Thread
-                        self.logger.info('Setting up RabbitMQ Thread')
-                        self.rmq_thread = rmq_thread.RabbitMQ_Thread(self.cfg['rmq']['connection'],
-                                                                     self.log_name,
-                                                                     self) #RMQ Thread
-                        self.rmq_thread.daemon = True
+
             #Launch threads
             for key in self.thread_enable.keys():
                 if self.thread_enable[key]:
@@ -191,9 +192,8 @@ class Main_Thread(threading.Thread):
                     elif key == 'mlat': #Start Service Thread
                         self.logger.info('Launching MLAT SBS1 Thread')
                         self.mlat_thread.start() #non-blocking
-                    elif key == 'rmq': #Initialize Radio Thread
-                        self.logger.info('Launching RabbitMQ Thread')
-                        self.rmq_thread.start() #non-blocking
+
+            self._init_producer()
             return True
         except Exception as e:
             self.logger.error('Error Launching Threads:', exc_info=True)
@@ -210,10 +210,9 @@ class Main_Thread(threading.Thread):
                 elif key == 'mlat':
                     self.mlat_thread.stop()
                     self.logger.warning("Terminated MLAT SBS1 Thread.")
-                elif key == 'rmq': #Initialize Radio Thread
-                    self.rmq_thread.stop()
-                    self.logger.warning("Terminated RabbitMQ Thread.")
 
+                self.producer.stop_producing()
+                time.sleep(0.5)
 
     #---STATE FUNCTIONS----
     def _send_session_start(self):
@@ -229,9 +228,6 @@ class Main_Thread(threading.Thread):
     def get_state(self):
         return self.state
     #---END STATE FUNCTIONS----
-
-    def utc_ts(self):
-        return "{:s} | main | ".format(datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ'))
 
     def stop(self):
         self._stop.set()

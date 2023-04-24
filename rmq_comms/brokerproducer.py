@@ -24,7 +24,7 @@ class BrokerProducer(BrokerConnector):
         """Called when the server has finished the creation of the exchange.
         """
         if self.loggername is not None:
-            self.logger.debug('Exchange declared successfully')
+            self.logger.info('Exchange declared successfully')
             self.logger.info('Registering as producer with broker')
 
     def send(self, key, msg):
@@ -60,5 +60,5 @@ class BrokerProducer(BrokerConnector):
         """
         if self.channel:
             if self.loggername is not None:
-                self.logger.debug('Stopping Producer')
+                self.logger.warning('Stopping Producer')
             self.close_channel()

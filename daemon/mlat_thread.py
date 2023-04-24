@@ -93,10 +93,10 @@ class MLAT_Thread(threading.Thread):
             time.sleep(0.000001)
 
         self.sock.close()
-        self.logger.warning('{:s} Terminated'.format(self.name))
+        self.logger.critical('{:s} Terminated'.format(self.name))
 
     def _reset_socket(self):
-        self.logger.debug('resetting socket...')
+        self.logger.error('resetting socket...')
         self.sock.close()
         self.connected = False
         # self._update_main_thread()
@@ -105,11 +105,11 @@ class MLAT_Thread(threading.Thread):
     def _init_socket(self):
         self.buffer = ''
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM) #TCP Socket, initialize
-        self.logger.debug("Setup socket")
+        self.logger.info("Setup socket")
         self._socket_watchdog = Watchdog(timeout=self.cfg['connection']['watchdog_time'],
                                          name = self.thread_name+".wd",
                                          userHandler=self._socket_watchdog_expired)
-        self.logger.debug("Setup socket Watchdog")
+        self.logger.info("Setup socket Watchdog")
 
     def _attempt_connect(self):
         self.logger.info("Attempting to connect to: [{:s}, {:d}]".format(self.cfg['connection']['ip'],
@@ -126,7 +126,7 @@ class MLAT_Thread(threading.Thread):
         self._socket_watchdog.start()
 
     def _socket_watchdog_expired(self):
-        self.logger.debug("Socket Watchdog Expired")
+        self.logger.error("Socket Watchdog Expired")
         self._reset_socket()
 
     def _readlines(self, recv_buffer=8192, delim='\n'):
@@ -154,8 +154,8 @@ class MLAT_Thread(threading.Thread):
             self.rx_q.put(msg)
             # self._socket_watchdog.reset(timeout=5)
         except Exception as e:
-            self.logger.debug("Unhandled Receive Data Error")
-            self.logger.debug(sys.exc_info())
+            self.logger.warning("Unhandled Receive Data Error")
+            self.logger.warning(sys.exc_info())
 
     def _encode_sbs1_json(self,data):
         #REF: http://woodair.net/sbs/Article/Barebones42_Socket_Data.htm
@@ -185,13 +185,11 @@ class MLAT_Thread(threading.Thread):
             if len(data[20]) != 0: msg.update({"spi":float(data[20])}) # Boolean. Flag to indicate Special Position Indicator has been set.
             if len(data[21]) != 0: msg.update({"is_on_ground":float(data[21])}) # Boolean. Flag to indicate ground squat switch is active.
         except Exception as e:
-            print(e)
+            self.logger.warning(e)
             return None
         return msg
 
     #### Socket and Connection Handlers ###########
-
-
     def _handle_socket_timeout(self):
         pass
 
@@ -203,11 +201,6 @@ class MLAT_Thread(threading.Thread):
         # self.tlm_q.put(self.tlm)
         return self.tlm
 
-
-
-
-
-
     def _update_main_thread(self):
         self.tlm['connected'] = self.connected
         self.tlm['rx_count']  = 0
@@ -215,16 +208,14 @@ class MLAT_Thread(threading.Thread):
         self.tlm_q.put(self.tlm)
 
     def _handle_socket_exception(self, e):
-        self.logger.debug("Unhandled Socket error")
-        self.logger.debug(sys.exc_info())
+        self.logger.warning("Unhandled Socket error")
+        self.logger.warning(sys.exc_info())
         self._reset_socket()
-
-
 
     #### END Socket and Connection Handlers ###########
     def stop(self):
         #self.conn.close()
-        self.logger.info('{:s} Terminating...'.format(self.name))
+        self.logger.warning('{:s} Terminating...'.format(self.name))
         self._stop.set()
 
     def stopped(self):

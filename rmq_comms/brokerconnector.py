@@ -60,7 +60,7 @@ class BrokerConnector(object):
         """
         if self.loggername is not None:
             #logging.getLogger(self.loggername).debug('Connecting to %s', self.url)
-            self.logger.debug('Connecting to [{:s}:{:d}]'.format(self.cfg['ip'], self.cfg['port']))
+            self.logger.info('Connecting to [{:s}:{:d}]'.format(self.cfg['ip'], self.cfg['port']))
         #return pika.SelectConnection(pika.URLParameters(self.url),
         #                             self.on_connection_open,
         #                             stop_ioloop_on_close=False)
@@ -72,7 +72,7 @@ class BrokerConnector(object):
         self.connected = False
         self.connection = conn
         if self.loggername is not None:
-            self.logger.debug('Connection Error: {:s}'.format(e))
+            self.logger.warning('Connection Error: {:s}'.format(e))
         time.sleep(self.retry_wait)
         self.reconnect()
 
@@ -83,7 +83,7 @@ class BrokerConnector(object):
         self.connected = True
         # print "Connection to rabbitmq server: {:s}:{:d} has been established...".format(self.cfg['ip'], self.cfg['port'])
         if self.loggername is not None:
-            self.logger.debug("Connection to rabbitmq server: {:s}:{:d} has been established...".format(self.cfg['ip'], self.cfg['port']))
+            self.logger.info("Connection to rabbitmq server: {:s}:{:d} has been established...".format(self.cfg['ip'], self.cfg['port']))
         self.add_on_connection_close_callback()
         self.open_channel()
 
@@ -121,7 +121,7 @@ class BrokerConnector(object):
         """Open a new channel with the server and provide the "on open" callback.
         """
         if self.loggername is not None:
-            self.logger.debug('Creating a new channel')
+            self.logger.info('Creating a new channel')
         self.connection.channel(on_open_callback=self.on_channel_open)
 
     def on_channel_open(self, channel):
@@ -129,7 +129,7 @@ class BrokerConnector(object):
         channel open call).  We'll also declare the exchange.
         """
         if self.loggername is not None:
-            self.logger.debug('Channel opened')
+            self.logger.info('Channel opened')
         self.channel = channel
         self.add_on_channel_close_callback()
         self.setup_exchange()
@@ -156,7 +156,7 @@ class BrokerConnector(object):
         declaration on the server.
         """
         if self.loggername is not None:
-            self.logger.debug('Declaring exchange "%s"', self.exchange)
+            self.logger.info('Declaring exchange "%s"', self.exchange)
         self.channel.exchange_declare(callback = self.on_exchange_declareok,
                                       exchange = self.exchange,
                                       exchange_type = self.exchange_type,
@@ -166,13 +166,13 @@ class BrokerConnector(object):
         """Called when the server has finished the creation of the exchange.
         """
         if self.loggername is not None:
-            self.logger.debug('Exchange declared successfully')
+            self.logger.info('Exchange declared successfully')
 
     def close_channel(self):
         """Close the channel with the server cleanly.
         """
         if self.loggername is not None:
-            self.logger.debug('Closing the channel')
+            self.logger.warning('Closing the channel')
         if self.channel:
             self.channel.close()
 
@@ -180,12 +180,12 @@ class BrokerConnector(object):
         """Cleanly shutdown the connection to the server.
         """
         if self.loggername is not None:
-            self.logger.debug('Stopping Broker Connector')
+            self.logger.warning('Stopping Broker Connector')
         self.closing = True
         self.connection.ioloop.stop()
 
     def close_connection(self):
         """Close the connection to server"""
         if self.loggername is not None:
-            self.logger.debug('Closing connection')
+            self.logger.warning('Closing connection')
         self.connection.close()

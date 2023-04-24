@@ -7,11 +7,11 @@ main:
     path: "/log/adsb2rmq"
     name: "main"
     verbose: True
-    level: "DEBUG"
+    level: "INFO"
 thread_enable:
   sbs1: True
   mlat: True
-  rmq: True
+  # rmq: True
 sbs1:
   name: "adsb" #thread name
   type: "sbs1" #type of device

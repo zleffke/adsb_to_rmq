@@ -1,0 +1,31 @@
+main:
+  name: "adsb2rmq_cli"
+  version: "1.0.0"
+  base_path: 'cwd'
+  ssid: 'adsb'
+  log:
+    path: "/log/adsb2rmq"
+    name: "main"
+    verbose: True
+    level: "DEBUG"
+thread_enable:
+  # sbs1: True
+  # mlat: True
+  # # rmq: True
+rmq:
+  name: "RMQ_Thread"
+  type: "rmq" #indicates the connection thread for the service uses RabbitMQ
+  connection: #Passed to the BrokerConnector class for RMQ Connections
+    type: 'daemon' #Options: daemon or client
+    ip: "0.0.0.0" #Ip Address of RabbitMQ Broker
+    port: 5672  #default IP of RabbitMQ
+    user: "adsb"
+    pass: "adsb"
+    vhost: "adsb"
+    exchange: "adsb"
+    exchange_key: "adsb"
+    exch_type: "topic"
+    durable: True
+    retry_wait: 5
+    update_delay: 0.1
+    app_id: "adsb2rmq_cli"

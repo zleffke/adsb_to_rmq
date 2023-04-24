@@ -11,6 +11,7 @@ import json, csv, yaml
 import subprocess
 from binascii import *
 
+from cli.main_thread import *
 
 def import_configs_yaml(args):
     ''' setup configuration data '''
@@ -26,6 +27,8 @@ def import_configs_yaml(args):
 
     if cfg['main']['base_path'] == 'cwd':
         cfg['main']['base_path'] = os.getcwd()
+
+    cfg['icao']=args.icao.upper()
     return cfg
 
 def configure_logs(cfg):
@@ -41,11 +44,11 @@ def configure_logs(cfg):
         os.makedirs(cfg['main']['log']['path'])
 
     #configure thread specific logs
-    for key in cfg['thread_enable'].keys():
-        #first tell the sub thread where to find main log
-        cfg[key].update({
-            'main_log':cfg['main']['log']['name']
-        })
+    # for key in cfg['thread_enable'].keys():
+    #     #first tell the sub thread where to find main log
+    #     cfg[key].update({
+    #         'main_log':cfg['main']['log']['name']
+    #     })
     return cfg
 
 def main(cfg):
@@ -73,8 +76,14 @@ if __name__ == '__main__':
     cfg.add_argument('--cfg_file',
                        dest='cfg_file',
                        type=str,
-                       default="adsb2rmq_config.yaml",
+                       default="adsb2rmq_cli_config.yaml",
                        help="Daemon Configuration File",
+                       action="store")
+    cfg.add_argument('--icao',
+                       dest='icao',
+                       type=str,
+                       default="4BA95A",
+                       help="ICAO to subscribe to",
                        action="store")
     args = parser.parse_args()
 #--------END Command Line argument parser------------------------------------------------------
